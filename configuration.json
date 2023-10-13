@@ -1,0 +1,45 @@
+[
+    {
+        "key": "CsvPath",
+        "type": "input",
+        "defaultValue": "",
+        "templateOptions": {
+            "label": "CSV File Path",
+            "placeholder": "C:\\Tools4Ever\\HelloID\\Infolearn\\infolearn_persons.csv",
+            "description": "The path to the CSV file to export the data to",
+            "required": true
+        }
+    },
+    {
+        "key": "Delimiter",
+        "type": "input",
+        "defaultValue": "",
+        "templateOptions": {
+            "label": "Delimiter",
+            "placeholder": ",",
+            "description": "The delimiter that separates the property values in the CSV file. The default is a comma (,)",
+            "required": true
+        }
+    },
+    {
+        "key": "Encoding",
+        "type": "input",
+        "defaultValue": "",
+        "templateOptions": {
+            "label": "Encoding",
+            "placeholder": "utf8",
+            "description": "The encoding for the imported CSV file. The default value is utf8",
+            "required": true
+        }
+    },
+    {
+        "key": "isDebug",
+        "type": "checkbox",
+        "defaultValue": false,
+        "templateOptions": {
+            "label": "Toggle debug logging",
+            "description": "When toggled, debug logging will be displayed",
+            "required": false
+        }
+    }
+]
