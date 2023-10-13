@@ -14,6 +14,10 @@ Create and manage a CSV file required for synchronization of CSV to Infolearn
 | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | This repository contains the connector and configuration code only. The implementer is responsible to acquire the connection details such as username, password, certificate, etc. You might even need to sign a contract or agreement with the supplier before implementing this connector. Please contact the client's application manager to coordinate the connector requirements. |
 
+<p align="center">
+  <img src="https://infolearn.nl/infolearn-version-004/wp-content/themes/infolearn/assets/images/logo/default.png">
+</p>
+
 ## Versioning
 | Version | Description     |
 | ------- | --------------- |
