@@ -1,6 +1,4 @@
 # HelloID-Conn-Prov-Target-Infolearn-CSV
-Create and manage a CSV file required for synchronization of CSV to Infolearn
-
 <a href="https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-Infolearn-CSV/network/members"><img src="https://img.shields.io/github/forks/Tools4everBV/HelloID-Conn-Prov-Target-Infolearn-CSV" alt="Forks Badge"/></a>
 <a href="https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-Infolearn-CSV/pulls"><img src="https://img.shields.io/github/issues-pr/Tools4everBV/HelloID-Conn-Prov-Target-Infolearn-CSV" alt="Pull Requests Badge"/></a>
 <a href="https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-Infolearn-CSV/issues"><img src="https://img.shields.io/github/issues/Tools4everBV/HelloID-Conn-Prov-Target-Infolearn-CSV" alt="Issues Badge"/></a>
