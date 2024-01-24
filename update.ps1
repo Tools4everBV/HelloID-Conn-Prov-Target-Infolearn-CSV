@@ -220,7 +220,6 @@ try {
                 [void]$updatedCsvContent.Add($csvRowObject)
                 [void]$addedRows.Add($csvRowObject)
             }
-        }
     }
     catch {
         $ex = $PSItem
