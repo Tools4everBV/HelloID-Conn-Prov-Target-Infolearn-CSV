@@ -204,16 +204,20 @@ try {
 
         [Int]$addedRows = 0
         foreach ($contract in $p.contracts | Where-Object { $_.Context.InConditions -eq $true }) {
+            $csvRowObject = [PSCustomObject]@{}
+            $account.psobject.properties | ForEach-Object {
+                $csvRowObject | Add-Member -MemberType $_.MemberType -Name $_.Name -Value $_.Value -Force
+            }
             #region Change contractspecific mapping here
-            $account."Opdrachtgevernaam" = "$($contract.organization.ExternalId)"
-            $account."Opdrachtgever" = "$($contract.organization.Name)"
-            $account."OE_code" = "$($contract.Custom.DepartmentCode)"
-            $account."OE" = "$($contract.Department.DisplayName)"
-            $account."Functie_code" = "$($contract.Title.Code)"
-            $account."Functie" = "$($contract.Title.Name)"
+            $csvRowObject."Opdrachtgevernaam" = "$($contract.organization.ExternalId)"
+            $csvRowObject."Opdrachtgever" = "$($contract.organization.Name)"
+            $csvRowObject."OE_code" = "$($contract.Custom.DepartmentCode)"
+            $csvRowObject."OE" = "$($contract.Department.DisplayName)"
+            $csvRowObject."Functie_code" = "$($contract.Title.Code)"
+            $csvRowObject."Functie" = "$($contract.Title.Name)"
             #endregion Change contractspecific mapping here
     
-            [void]$updatedCsvContent.Add($account)
+            [void]$updatedCsvContent.Add($csvRowObject)
             $addedRows++
         }
     }
