@@ -1,7 +1,7 @@
 #####################################################
 # HelloID-Conn-Prov-Target-Infolearn-CSV-Update
 #
-# Version: 1.0.0
+# Version: 1.1.0
 #####################################################
 # Initialize default values
 $c = $configuration | ConvertFrom-Json
@@ -124,7 +124,7 @@ try {
     
         $csvContent = $null
         $csvContent = Import-Csv -Path $c.CsvPath -Delimiter $c.Delimiter -Encoding $c.Encoding
-        
+
         # Group on correlation property to match employee to CSV row(s)
         $csvContentGroupedOnCorrelationProperty = $csvContent | Group-Object -Property $correlationProperty -AsString -AsHashTable
         
@@ -179,8 +179,6 @@ try {
 
         $updatedCsvContent = $null
         $updatedCsvContent = [System.Collections.ArrayList](, ($csvContent | Where-Object { $_ -notin $currentRows }))
-
-        $removedRows = ($currentRows | Measure-Object).Count
     }
     catch {
         $ex = $PSItem
@@ -203,19 +201,25 @@ try {
     try {
         Write-Verbose "Updating account object foreach contract and adding to updated csv object"
 
-        [Int]$addedRows = 0
-        foreach ($contract in $p.contracts | Where-Object { $_.Context.InConditions -eq $true }) {
-            #region Change contractspecific mapping here
-            $account."Opdrachtgevernaam" = "$($contract.organization.ExternalId)"
-            $account."Opdrachtgever" = "$($contract.organization.Name)"
-            $account."OE_code" = "$($contract.Custom.DepartmentCode)"
-            $account."OE" = "$($contract.Department.DisplayName)"
-            $account."Functie_code" = "$($contract.Title.Code)"
-            $account."Functie" = "$($contract.Title.Name)"
-            #endregion Change contractspecific mapping here
+        $addedRows = [System.Collections.ArrayList]::new()
+        foreach ($contract in $p.contracts) {
+            if ($contract.Context.InConditions -OR ($dryRun -eq $True)) {
+                $csvRowObject = [PSCustomObject]@{}
+                $account.psobject.properties | ForEach-Object {
+                    $csvRowObject | Add-Member -MemberType $_.MemberType -Name $_.Name -Value $_.Value -Force
+                }
+                #region Change contractspecific mapping here
+                $csvRowObject."Opdrachtgevernaam" = "$($contract.organization.ExternalId)"
+                $csvRowObject."Opdrachtgever" = "$($contract.organization.Name)"
+                $csvRowObject."OE_code" = "$($contract.Custom.DepartmentCode)"
+                $csvRowObject."OE" = "$($contract.Department.DisplayName)"
+                $csvRowObject."Functie_code" = "$($contract.Title.Code)"
+                $csvRowObject."Functie" = "$($contract.Title.Name)"
+                #endregion Change contractspecific mapping here
     
-            [void]$updatedCsvContent.Add($account)
-            $addedRows++
+                [void]$updatedCsvContent.Add($csvRowObject)
+                [void]$addedRows.Add($csvRowObject)
+            }
         }
     }
     catch {
@@ -247,7 +251,7 @@ try {
         }
 
         if (-not($dryRun -eq $true)) {
-            Write-Verbose "Updating [$($addedRows)] rows in CSV where [$($correlationProperty)] = [$($correlationValue)]"
+            Write-Verbose "Updating [$(($addedRows | Measure-Object).Count)] rows in CSV where [$($correlationProperty)] = [$($correlationValue)]"
 
             $updatedCsv = $updatedCsvContent | Foreach-Object { $_ } | Export-Csv @splatParams
 
@@ -258,12 +262,12 @@ try {
 
             $auditLogs.Add([PSCustomObject]@{
                     # Action  = "" # Optional
-                    Message = "Successfully updated [$($addedRows)] rows in CSV where [$($correlationProperty)] = [$($correlationValue)]"
+                    Message = "Successfully updated [$(($addedRows | Measure-Object).Count)] rows in CSV where [$($correlationProperty)] = [$($correlationValue)]"
                     IsError = $false
                 })
         }
         else {
-            Write-Warning "DryRun: Would update [$($addedRows)] rows in CSV where [$($correlationProperty)] = [$($correlationValue)]"
+            Write-Warning "DryRun: Would update [$(($addedRows | Measure-Object).Count)] rows in CSV where [$($correlationProperty)] = [$($correlationValue)]: $($addedRows | ConvertTo-Json)"
         }
     }
     catch {
@@ -274,7 +278,7 @@ try {
 
         $auditLogs.Add([PSCustomObject]@{
                 # Action  = "" # Optional
-                Message = "Error updating [$($addedRows)] rows in CSV where [$($correlationProperty)] = [$($correlationValue)]. Error Message: $($errorMessage.AuditErrorMessage)"
+                Message = "Error updating [$(($addedRows | Measure-Object).Count)] rows in CSV where [$($correlationProperty)] = [$($correlationValue)]. Error Message: $($errorMessage.AuditErrorMessage)"
                 IsError = $true
             })
 
