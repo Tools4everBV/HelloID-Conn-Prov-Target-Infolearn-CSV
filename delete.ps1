@@ -151,7 +151,7 @@ try {
         $updatedCsvContent = $null
         $updatedCsvContent = [System.Collections.ArrayList](, ($csvContent | Where-Object { $_ -notin $currentRows }))
 
-        $removedRows = ($currentRows | Measure-Object).Count
+        $removedRows = $currentRows
     }
     catch {
         $ex = $PSItem
@@ -182,7 +182,7 @@ try {
         }
 
         if (-not($dryRun -eq $true)) {
-            Write-Verbose "Removing [$($removedRows)] rows from CSV where [$($correlationProperty)] = [$($correlationValue)]"
+            Write-Verbose "Removing [$(($removedRows | Measure-Object).Count)] rows from CSV where [$($correlationProperty)] = [$($correlationValue)]"
 
             $updatedCsv = $updatedCsvContent | Foreach-Object { $_ } | Export-Csv @splatParams
 
@@ -193,12 +193,12 @@ try {
 
             $auditLogs.Add([PSCustomObject]@{
                     # Action  = "" # Optional
-                    Message = "Successfully removed $($removedRows)] rows from CSV where [$($correlationProperty)] = [$($correlationValue)]"
+                    Message = "Successfully removed [$(($removedRows | Measure-Object).Count)] rows from CSV where [$($correlationProperty)] = [$($correlationValue)]"
                     IsError = $false
                 })
         }
         else {
-            Write-Warning "DryRun: Would remove $($removedRows)] rows from CSV where [$($correlationProperty)] = [$($correlationValue)]"
+            Write-Warning "DryRun: Would remove [$(($removedRows | Measure-Object).Count)] rows from CSV where [$($correlationProperty)] = [$($correlationValue)]: $($removedRows | ConvertTo-Json)"
         }
     }
     catch {
@@ -209,7 +209,7 @@ try {
 
         $auditLogs.Add([PSCustomObject]@{
                 # Action  = "" # Optional
-                Message = "Error removing $($removedRows)] rows from CSV where [$($correlationProperty)] = [$($correlationValue)]t. Error Message: $($errorMessage.AuditErrorMessage)"
+                Message = "Error removing [$(($removedRows | Measure-Object).Count)] rows from CSV where [$($correlationProperty)] = [$($correlationValue)]t. Error Message: $($errorMessage.AuditErrorMessage)"
                 IsError = $true
             })
 
