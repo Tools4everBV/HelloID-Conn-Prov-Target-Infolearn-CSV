@@ -267,7 +267,7 @@ try {
                 })
         }
         else {
-            Write-Warning "DryRun: Would update [$(($addedRows | Measure-Object).Count)] rows in CSV where [$($correlationProperty)] = [$($correlationValue)]: $($addedRows | ConvertTo-Json)"
+            Write-Warning "DryRun: Would update [$($addedRows)] rows in CSV where [$($correlationProperty)] = [$($correlationValue)]"
         }
     }
     catch {

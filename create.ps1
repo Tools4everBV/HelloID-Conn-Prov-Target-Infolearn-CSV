@@ -307,6 +307,7 @@ finally {
 
         # # Optionally return data for use in notifications
         # PreviousAccount  = $previousAccount
+        # PreviousAccount  = $previousAccount
         # Account          = $account
     
         # # Optionally return data for use in other systems
