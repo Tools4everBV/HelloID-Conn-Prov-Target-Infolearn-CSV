@@ -1,0 +1,261 @@
+{
+  "Version": "v1",
+  "MappingFields": [
+    {
+      "Name": "Username",
+      "Description": "Username of the person in Infolearn. Mandatory",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.ExternalId\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "Medewerker",
+      "Description": "Unique identifier of the person (correlation field). Mandatory",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.ExternalId\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": true
+        }
+      ]
+    },
+    {
+      "Name": "Roepnaam",
+      "Description": "Nickname of the person",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.Name.NickName\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "Voornaam",
+      "Description": "Given name of the person",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.Name.GivenName\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "Voorletters",
+      "Description": "Initials of the person",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.Name.Initials\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "Geboortedatum",
+      "Description": "Birth date of the person. The script writes it in the format dd/MM/yyyy",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.Details.BirthDate\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "Opdrachtgevernaam",
+      "Description": "External ID of the organization of the contract. The script sets this per contract (one row per contract in conditions); this mapping only defines the column",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.PrimaryContract.Organization.ExternalId\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "Opdrachtgever",
+      "Description": "Name of the organization of the contract. The script sets this per contract; this mapping only defines the column",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.PrimaryContract.Organization.Name\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "OE_code",
+      "Description": "Department code of the contract. The script sets this per contract; this mapping only defines the column",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.PrimaryContract.Custom.DepartmentCode\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "OE",
+      "Description": "Department name of the contract. The script sets this per contract; this mapping only defines the column",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.PrimaryContract.Department.DisplayName\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "Functie_code",
+      "Description": "Job title code of the contract. The script sets this per contract; this mapping only defines the column",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.PrimaryContract.Title.Code\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "Functie",
+      "Description": "Job title name of the contract. The script sets this per contract; this mapping only defines the column",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.PrimaryContract.Title.Name\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "NaamSamengesteld",
+      "Description": "Composed name of the person (custom person field)",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Complex",
+          "Value": "\"// generateDisplayNameOption1.js [https://github.com/Tools4everBV/HelloID-Lib-Prov-HelperFunctions/blob/master/Javascript/Target/DisplayName/Scripts/generateDisplayNameOption1.js]\\r\\n//\\r\\n// Mapping logic to generate the DisplayName according to the following convention.\\r\\n// B\\tJanine van den Boele\\r\\n// BP\\tJanine van den Boele – de Vries\\r\\n// P\\tJanine de Vries\\r\\n// PB   Janine de Vries – van den Boele\\r\\nfunction generateDisplayName() {\\r\\n    let nickName = Person.Name.NickName;\\r\\n    let middleName = Person.Name.FamilyNamePrefix;\\r\\n    let lastName = Person.Name.FamilyName;\\r\\n    let middleNamePartner = Person.Name.FamilyNamePartnerPrefix;\\r\\n    let lastNamePartner = Person.Name.FamilyNamePartner;\\r\\n    let convention = Person.Name.Convention;\\r\\n\\r\\n    let displayName = '';\\r\\n    switch (convention) {\\r\\n        case \\\"BP\\\":\\r\\n            displayName = displayName + nickName + ' ';\\r\\n            if (typeof middleName !== 'undefined' && middleName) { displayName = displayName + middleName + ' ' }\\r\\n            displayName = displayName + lastName;\\r\\n\\r\\n            displayName = displayName + ' - ';\\r\\n            if (typeof middleNamePartner !== 'undefined' && middleNamePartner) { displayName = displayName + middleNamePartner + ' ' }\\r\\n            displayName = displayName + lastNamePartner;\\r\\n            break;\\r\\n        case \\\"PB\\\":\\r\\n            displayName = displayName + nickName + ' ';\\r\\n            if (typeof middleNamePartner !== 'undefined' && middleNamePartner) { displayName = displayName + middleNamePartner + ' ' }\\r\\n            displayName = displayName + lastNamePartner;\\r\\n\\r\\n            displayName = displayName + ' - ';\\r\\n            if (typeof middleName !== 'undefined' && middleName) { displayName = displayName + middleName + ' ' }\\r\\n            displayName = displayName + lastName;\\r\\n            break;\\r\\n        case \\\"P\\\":\\r\\n            displayName = displayName + nickName + ' ';\\r\\n            if (typeof middleNamePartner !== 'undefined' && middleNamePartner) { displayName = displayName + middleNamePartner + ' ' }\\r\\n            displayName = displayName + lastNamePartner;\\r\\n            break;\\r\\n        case \\\"B\\\":\\r\\n        default:\\r\\n            displayName = displayName + nickName + ' ';\\r\\n            if (typeof middleName !== 'undefined' && middleName) { displayName = displayName + middleName + ' ' }\\r\\n            displayName = displayName + lastName;\\r\\n            break;\\r\\n    }\\r\\n    // Trim spaces at start and end\\r\\n    displayName = displayName.trim();\\r\\n\\r\\n    // Shorten string to maxAttributeLength \\r\\n    const maxAttributeLength = 256;\\r\\n    displayName = displayName.substring(0, maxAttributeLength);\\r\\n\\r\\n    return displayName;\\r\\n}\\r\\n\\r\\ngenerateDisplayName();\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "VoorvoegselSamengesteld",
+      "Description": "Composed name prefix of the person (custom person field)",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Complex",
+          "Value": "\"// formatInitialsOption1.js [https://github.com/Tools4everBV/HelloID-Lib-Prov-HelperFunctions/blob/master/Javascript/Target/Initials/Scripts/formatInitialsOption1.js]\\r\\n//\\r\\nfunction formatInitials(initials) {\\r\\n    let formattedInitials = ''\\r\\n\\r\\n    if (initials && initials !== \\\"\\\") {\\r\\n        // Remove dots and keep the first 3 characters\\r\\n        formattedInitials = initials.replace(/\\\\./g, '').substring(0, 3);\\r\\n\\r\\n        // Insert a dot after each character\\r\\n        formattedInitials = formattedInitials.replace(/(.{1})/g, \\\"$1.\\\");\\r\\n    }\\r\\n\\r\\n    return formattedInitials;\\r\\n}\\r\\n\\r\\nformatInitials(Person.Name.Initials);\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "Email_werk",
+      "Description": "Business email address of the person",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Complex",
+          "Value": "\"function getEmail() {\\r\\n    let mail = '';\\r\\n    if (typeof Person.Accounts.MicrosoftActiveDirectory.mail !== 'undefined' && Person.Accounts.MicrosoftActiveDirectory.mail) {\\r\\n        mail = Person.Accounts.MicrosoftActiveDirectory.mail;\\r\\n    }\\r\\n    return mail;\\r\\n}\\r\\ngetEmail()\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    }
+  ],
+  "UniqueFieldNames": []
+}
