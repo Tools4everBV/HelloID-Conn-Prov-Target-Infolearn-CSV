@@ -28,18 +28,8 @@
         "templateOptions": {
             "label": "Encoding",
             "placeholder": "utf8",
-            "description": "The encoding for the imported CSV file. The default value is utf8",
+            "description": "The encoding of the CSV file. The default value is utf8",
             "required": true
-        }
-    },
-    {
-        "key": "isDebug",
-        "type": "checkbox",
-        "defaultValue": false,
-        "templateOptions": {
-            "label": "Toggle debug logging",
-            "description": "When toggled, debug logging will be displayed",
-            "required": false
         }
     }
 ]

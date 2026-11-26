@@ -1,318 +1,235 @@
-#####################################################
+#################################################
 # HelloID-Conn-Prov-Target-Infolearn-CSV-Create
-#
-# Version: 1.1.0
-#####################################################
-# Initialize default values
-$c = $configuration | ConvertFrom-Json
-$p = $person | ConvertFrom-Json
-$success = $false # Set to false at start, at the end, only when no error occurs it is set to true
-$auditLogs = [System.Collections.Generic.List[PSCustomObject]]::new()
+# PowerShell V2
+#################################################
 
-# Set TLS to accept TLS, TLS 1.1 and TLS 1.2
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls12
-
-# Set debug logging
-switch ($($c.isDebug)) {
-    $true { $VerbosePreference = "Continue" }
-    $false { $VerbosePreference = "SilentlyContinue" }
-}
-$InformationPreference = "Continue"
-$WarningPreference = "Continue"
-
-# Correlation values
-$correlationProperty = "Medewerker" # Has to match the name of the unique identifier
-$correlationValue = $p.ExternalId # Has to match the value of the unique identifier
-
-#region Change mapping here
-# Convert birthdate to accepted format
-if (-NOT[String]::IsNullOrEmpty($p.Details.BirthDate)) {
-    $birthDate = ([DateTime]$p.Details.BirthDate).ToString("dd/MM/yyyy")
-}
-else {
-    $birthDate = ""
-}
-
-$account = [PSCustomObject]@{
-    # Person properties
-    "Username"                = "$($p.ExternalId)"
-    "Medewerker"              = "$($p.ExternalId)"
-    "Roepnaam"                = "$($p.Name.NickName)"
-    "Voornaam"                = "$($p.Name.GivenName)"
-    "Voorletters"             = "$($p.Name.Initials)"
-    "NaamSamengesteld"        = "$($p.Custom.NaamSamengesteld)"
-    "VoorvoegselSamengesteld" = "$($p.Custom.VoorvoegselSamengesteld)"
-    "Geboortedatum"           = "$($birthDate)"
-    "Email_werk"              = "$($p.Contact.Business.Email)"
-
-    # Contract properties
-    "Opdrachtgevernaam"       = "" # Is set further down in the script foreach contract
-    "Opdrachtgever"           = "" # Is set further down in the script foreach contract
-    "OE_code"                 = "" # Is set further down in the script foreach contract
-    "OE"                      = "" # Is set further down in the script foreach contract
-    "Functie_code"            = "" # Is set further down in the script foreach contract
-    "Functie"                 = "" # Is set further down in the script foreach contract
-}
-
-# Define account properties as required
-$requiredAccountFields = @("Username", "Medewerker")
-#endregion Change mapping here
+# Enable TLS1.2
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
 
 #region functions
-function Get-ErrorMessage {
+function Resolve-InfolearnCSVError {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory,
-            ValueFromPipeline
-        )]
-        [object]$ErrorObject
+        [Parameter(Mandatory)]
+        [object]
+        $ErrorObject
     )
     process {
         $errorMessage = [PSCustomObject]@{
-            VerboseErrorMessage = $null
-            AuditErrorMessage   = $null
+            ScriptLineNumber = $ErrorObject.InvocationInfo.ScriptLineNumber
+            Line             = $ErrorObject.InvocationInfo.Line
+            ErrorDetails     = $null
+            FriendlyMessage  = $null
         }
 
         # Set verbose error message
-        $errorMessage.VerboseErrorMessage = $ErrorObject.Exception.Message
+        $errorMessage.ErrorDetails = $ErrorObject.Exception.Message
 
         # Set audit error message
-        $errorMessage.AuditErrorMessage = $ErrorObject.Exception.Message
+        $errorMessage.FriendlyMessage = $ErrorObject.Exception.Message
 
         Write-Output $errorMessage
+    }
+}
+
+function Write-InfolearnCSVRows {
+    # Replaces the existing rows of the person in the CSV by the new rows
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)] [AllowEmptyCollection()] [object[]] $Rows,
+        [Parameter(Mandatory)] [AllowEmptyCollection()] [object[]] $ExistingRows,
+        [Parameter(Mandatory)] [AllowNull()] [object[]] $CsvContent
+    )
+    process {
+        if (($Rows.Count -eq 0) -and ($ExistingRows.Count -eq 0)) { return }
+
+        $updatedCsvContent = @($CsvContent | Where-Object { $_ -notin $ExistingRows }) + @($Rows)
+
+        # Export-Csv takes its columns from the first row: use the CSV header plus the new columns, so a column missing in the header (e.g. OE_code) is not dropped
+        $columns = [System.Collections.Generic.List[string]]::new()
+        foreach ($row in @(@($CsvContent | Select-Object -First 1) + @($Rows | Select-Object -First 1))) {
+            foreach ($name in $row.PSObject.Properties.Name) { if ($columns -notcontains $name) { $columns.Add($name) } }
+        }
+
+        # Write to a temporary file next to the CSV and move it into place, so a failed write never leaves a cut-off CSV
+        $csvTempPath = "$($actionContext.Configuration.CsvPath).tmp"
+        if ($updatedCsvContent.Count -gt 0) {
+            $null = $updatedCsvContent | Select-Object -Property $columns | Export-Csv -Path $csvTempPath -Delimiter $actionContext.Configuration.Delimiter -Encoding $actionContext.Configuration.Encoding -NoTypeInformation -ErrorAction Stop -Verbose:$false
+        }
+        else {
+            # No rows left: keep the header line, so the CSV keeps its column names
+            $csvHeader = ($ExistingRows[0] | ConvertTo-Csv -Delimiter $actionContext.Configuration.Delimiter -NoTypeInformation)[0]
+            Set-Content -Path $csvTempPath -Value $csvHeader -Encoding $actionContext.Configuration.Encoding -ErrorAction Stop
+        }
+        Move-Item -Path $csvTempPath -Destination $actionContext.Configuration.CsvPath -Force -ErrorAction Stop
     }
 }
 #endregion functions
 
 try {
-    #region Check if required fields are available for correlation
-    $incompleteCorrelationValues = $false
-    if ([String]::IsNullOrEmpty($correlationProperty)) {
-        $incompleteCorrelationValues = $true
-        Write-Warning "Required correlation field [$correlationProperty] has a null or empty value"
-    }
-    if ([String]::IsNullOrEmpty($correlationValue)) {
-        $incompleteCorrelationValues = $true
-        Write-Warning "Required correlation field [$correlationValue] has a null or empty value"
-    }
-    if ($incompleteCorrelationValues -eq $true) {
-        throw "Correlation values incomplete, cannot continue. CorrelationProperty = [$correlationProperty], CorrelationValue = [$correlationValue]"
-    }
-    #endregion Check if required fields are available for correlation
+    # Initial Assignments
+    $outputContext.AccountReference = 'Currently not available'
+    $actionMessage = 'validating mapped fields and correlation configuration'
 
-    #region Check if required fields are available in account object
-    $incompleteAccount = $false
-    foreach ($requiredAccountField in $requiredAccountFields) {
-        if ($requiredAccountField -notin $account.PsObject.Properties.Name) {
-            $incompleteAccount = $true
-            Write-Warning "Required account object field [$requiredAccountField] is missing"
+    # Account object = mapped data with the computed values applied
+    $account = $actionContext.Data.PSObject.Copy()
+
+    # The fields of the field mapping, so the output context only contains mapped fields
+    $mappedFields = $actionContext.Data.PSObject.Properties.Name
+
+    # Convert birthdate to accepted format. The date is taken as written, also with a Z or an offset, and not converted to the time zone of the agent
+    if ($account.Geboortedatum -is [DateTime]) {
+        $account.Geboortedatum = $account.Geboortedatum.ToString('dd/MM/yyyy')
+    }
+    elseif (-not [string]::IsNullOrEmpty($account.Geboortedatum)) {
+        $birthDateFormats = [string[]]@('dd/MM/yyyy HH:mm:ss', 'dd/MM/yyyy', 'yyyy-MM-ddTHH:mm:ss.fffffffK', 'yyyy-MM-ddTHH:mm:ssK', 'yyyy-MM-dd HH:mm:ss', 'yyyy-MM-dd', 'MM/dd/yyyy HH:mm:ss', 'MM/dd/yyyy')
+        $parsedBirthDate = [DateTimeOffset]::MinValue
+        if (-not [DateTimeOffset]::TryParseExact([string]$account.Geboortedatum, $birthDateFormats, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$parsedBirthDate)) {
+            throw 'Unable to convert Geboortedatum to a date. Expected one of the supported formats'
         }
-        elseif ([String]::IsNullOrEmpty($account.$requiredAccountField)) {
-            $incompleteAccount = $true
-            Write-Warning "Required account object field [$requiredAccountField] has a null or empty value"
-        }
+        $account.Geboortedatum = $parsedBirthDate.Date.ToString('dd/MM/yyyy')
     }
-    if ($incompleteAccount -eq $true) {
-        throw "Account object incomplete, cannot continue."
+    else {
+        $account.Geboortedatum = ''
     }
-    #endregion Check if required fields are available in account object
 
-    #region Import CSV data
-    try {
-        Write-Verbose "Querying data from CSV file at path [$($c.CsvPath)]"
-    
-        $csvContent = $null
-        $csvContent = Import-Csv -Path $c.CsvPath -Delimiter $c.Delimiter -Encoding $c.Encoding
-        
-        # Group on correlation property to match employee to CSV row(s)
-        $csvContentGroupedOnCorrelationProperty = $csvContent | Group-Object -Property $correlationProperty -AsString -AsHashTable
-        
-        Write-Information "Successfully queried data from CSV file at path [$($c.CsvPath)]. Result count: $(($csvContent | Measure-Object).Count)"
-    }
-    catch {
-        $ex = $PSItem
-        $errorMessage = Get-ErrorMessage -ErrorObject $ex
-
-        Write-Verbose "Error at Line [$($ex.InvocationInfo.ScriptLineNumber)]: $($ex.InvocationInfo.Line). Error: $($errorMessage.VerboseErrorMessage)"
-
-        $auditLogs.Add([PSCustomObject]@{
-                # Action  = "" # Optional
-                Message = "Error querying data from CSV file at path [$($c.CsvPath)]. Error Message: $($errorMessage.AuditErrorMessage)"
-                IsError = $true
-            })
-
-        # Skip further actions, as this is a critical error
-        continue
-    }
-    #endregion Import CSV data
-
-    #region Get current row(s) for person
-    try {
-        Write-Verbose "Querying row(s) where [$($correlationProperty)] = [$($correlationValue)]"
-
-        $currentRows = $null
-        if ($csvContentGroupedOnCorrelationProperty -ne $null -and -not[string]::IsNullOrEmpty($correlationValue)) {
-            $currentRows = $csvContentGroupedOnCorrelationProperty["$($correlationValue)"]
+    # Validate mandatory mapped fields
+    foreach ($requiredField in @('Username', 'Medewerker')) {
+        if ([string]::IsNullOrEmpty($account.$requiredField)) {
+            throw "Mandatory attribute [$requiredField] is empty. Please make sure it is correctly mapped"
         }
     }
-    catch {
-        $ex = $PSItem
-        $errorMessage = Get-ErrorMessage -ErrorObject $ex
 
-        Write-Verbose "Error at Line [$($ex.InvocationInfo.ScriptLineNumber)]: $($ex.InvocationInfo.Line). Error: $($errorMessage.VerboseErrorMessage)"
+    # Validate correlation configuration
+    if ($actionContext.CorrelationConfiguration.Enabled) {
+        $correlationField = $actionContext.CorrelationConfiguration.AccountField
+        $correlationValue = $actionContext.CorrelationConfiguration.PersonFieldValue
 
-        $auditLogs.Add([PSCustomObject]@{
-                # Action  = "" # Optional
-                Message = "Error querying row(s) where [$($correlationProperty)] = [$($correlationValue)]. Error Message: $($errorMessage.AuditErrorMessage)"
-                IsError = $true
-            })
-
-        # Skip further actions, as this is a critical error
-        continue
-    }
-    #endregion Getcurrent row(s) for person
-
-    #region Create custom object for updated csv without the current row(s) for person (to make sure only HelloID input remains)
-    try {
-        Write-Verbose "Creating custom object for updated csv without the current rows"
-
-        $updatedCsvContent = $null
-        $updatedCsvContent = [System.Collections.ArrayList](, ($csvContent | Where-Object { $_ -notin $currentRows }))
-    }
-    catch {
-        $ex = $PSItem
-        $errorMessage = Get-ErrorMessage -ErrorObject $ex
-
-        Write-Verbose "Error at Line [$($ex.InvocationInfo.ScriptLineNumber)]: $($ex.InvocationInfo.Line). Error: $($errorMessage.VerboseErrorMessage)"
-
-        $auditLogs.Add([PSCustomObject]@{
-                # Action  = "" # Optional
-                Message = "Error creating custom object for updated csv without the current row(s) for person. Error Message: $($errorMessage.AuditErrorMessage)"
-                IsError = $true
-            })
-
-        # Skip further actions, as this is a critical error
-        continue
-    }
-    #endregion Create custom object for updated csv without the current row(s) for person (to make sure only HelloID input remains)
-
-    #region Update account object foreach contract in condition and add to updated csv object
-    try {
-        Write-Verbose "Updating account object foreach contract and adding to updated csv object"
-
-        $addedRows = [System.Collections.ArrayList]::new()
-        foreach ($contract in $p.contracts) {
-            if ($contract.Context.InConditions -OR ($dryRun -eq $True)) {
-                $csvRowObject = [PSCustomObject]@{}
-                $account.psobject.properties | ForEach-Object {
-                    $csvRowObject | Add-Member -MemberType $_.MemberType -Name $_.Name -Value $_.Value -Force
-                }
-                #region Change contractspecific mapping here
-                $csvRowObject."Opdrachtgevernaam" = "$($contract.organization.ExternalId)"
-                $csvRowObject."Opdrachtgever" = "$($contract.organization.Name)"
-                $csvRowObject."OE_code" = "$($contract.Custom.DepartmentCode)"
-                $csvRowObject."OE" = "$($contract.Department.DisplayName)"
-                $csvRowObject."Functie_code" = "$($contract.Title.Code)"
-                $csvRowObject."Functie" = "$($contract.Title.Name)"
-                #endregion Change contractspecific mapping here
-    
-                [void]$updatedCsvContent.Add($csvRowObject)
-                [void]$addedRows.Add($csvRowObject)
-            }
+        if ([string]::IsNullOrEmpty($($correlationField))) {
+            throw 'Correlation is enabled but not configured correctly'
+        }
+        if ([string]::IsNullOrEmpty($($correlationValue))) {
+            throw 'Correlation is enabled but [PersonFieldValue] is empty. Please make sure it is correctly mapped'
         }
     }
-    catch {
-        $ex = $PSItem
-        $errorMessage = Get-ErrorMessage -ErrorObject $ex
-
-        Write-Verbose "Error at Line [$($ex.InvocationInfo.ScriptLineNumber)]: $($ex.InvocationInfo.Line). Error: $($errorMessage.VerboseErrorMessage)"
-
-        $auditLogs.Add([PSCustomObject]@{
-                # Action  = "" # Optional
-                Message = "Error updating account object foreach contract and adding to updated csv object. Error Message: $($errorMessage.AuditErrorMessage)"
-                IsError = $true
-            })
-
-        # Skip further actions, as this is a critical error
-        continue
+    else {
+        throw 'Correlation is disabled. This connector requires correlation, as the rows of a person are identified by the correlation field'
     }
-    #endregion Update account object foreach contract in condition and add to updated csv object
 
-    #region Export updated CSV object
-    try {
-        $splatParams = @{
-            Path              = $c.CsvPath
-            Delimiter         = $c.Delimiter
-            Encoding          = $c.Encoding
-            NoTypeInformation = $true
-            ErrorAction       = "Stop"
-            Verbose           = $false
-        }
+    # GET account: import the CSV and find the row(s) for the correlation value
+    $actionMessage = "querying data from CSV file at path [$($actionContext.Configuration.CsvPath)]"
+    $csvContent = Import-Csv -Path $actionContext.Configuration.CsvPath -Delimiter $actionContext.Configuration.Delimiter -Encoding $actionContext.Configuration.Encoding -ErrorAction Stop
 
-        if (-not($dryRun -eq $true)) {
-            Write-Verbose "Updating [$(($addedRows | Measure-Object).Count)] rows in CSV where [$($correlationProperty)] = [$($correlationValue)]"
+    # Group on correlation field to match employee to CSV row(s)
+    $csvContentGrouped = $csvContent | Group-Object -Property $correlationField -AsString -AsHashTable
+    Write-Information "Successfully queried data from CSV file at path [$($actionContext.Configuration.CsvPath)]. Result count: $(($csvContent | Measure-Object).Count)"
 
-            $updatedCsv = $updatedCsvContent | Foreach-Object { $_ } | Export-Csv @splatParams
+    $actionMessage = "querying row(s) where [$($correlationField)] = [$($correlationValue)]"
+    $correlatedAccount = $null
+    if ($null -ne $csvContentGrouped) {
+        $correlatedAccount = $csvContentGrouped["$($correlationValue)"]
+    }
 
-            # Set aRef object for use in futher actions
-            $aRef = [PSCustomObject]@{
-                $correlationProperty = $correlationValue
+    # A person has one row per contract, so the correlation value is not unique in the CSV: more than one row is expected
+    $existingRows = @($correlatedAccount | Where-Object { $_ })
+    if ($existingRows.Count -eq 0) {
+        $lifecycleProcess = 'CreateAccount'
+    }
+    else {
+        $lifecycleProcess = 'CorrelateAccount'
+    }
+
+    # One row per contract in conditions (all contracts on a dry run)
+    $actionMessage = 'creating account object for each contract'
+    $rows = [System.Collections.ArrayList]::new()
+    foreach ($contract in $personContext.Person.Contracts) {
+        if ($contract.Context.InConditions -or ($actionContext.DryRun -eq $true)) {
+            $csvRowObject = [PSCustomObject]@{}
+            $account.PSObject.Properties | ForEach-Object {
+                $csvRowObject | Add-Member -MemberType NoteProperty -Name $_.Name -Value $_.Value -Force
             }
 
-            $auditLogs.Add([PSCustomObject]@{
-                    # Action  = "" # Optional
-                    Message = "Successfully updated [$(($addedRows | Measure-Object).Count)] rows in CSV where [$($correlationProperty)] = [$($correlationValue)]"
-                    IsError = $false
-                })
-        }
-        else {
-            Write-Warning "DryRun: Would update [$(($addedRows | Measure-Object).Count)] rows in CSV where [$($correlationProperty)] = [$($correlationValue)]: $($addedRows | ConvertTo-Json)"
+            # Contract specific mapping. Add-Member -Force adds the column even when it is not in the field mapping
+            $contractColumns = [ordered]@{
+                Opdrachtgevernaam = "$($contract.Organization.ExternalId)"
+                Opdrachtgever     = "$($contract.Organization.Name)"
+                OE_code           = "$($contract.Custom.DepartmentCode)"
+                OE                = "$($contract.Department.DisplayName)"
+                Functie_code      = "$($contract.Title.Code)"
+                Functie           = "$($contract.Title.Name)"
+            }
+            foreach ($column in $contractColumns.GetEnumerator()) {
+                $csvRowObject | Add-Member -MemberType NoteProperty -Name $column.Key -Value $column.Value -Force
+            }
+
+            [void]$rows.Add($csvRowObject)
         }
     }
-    catch {
-        $ex = $PSItem
-        $errorMessage = Get-ErrorMessage -ErrorObject $ex
 
-        Write-Verbose "Error at Line [$($ex.InvocationInfo.ScriptLineNumber)]: $($ex.InvocationInfo.Line). Error: $($errorMessage.VerboseErrorMessage)"
-
-        $auditLogs.Add([PSCustomObject]@{
-                # Action  = "" # Optional
-                Message = "Error updating [$(($addedRows | Measure-Object).Count)] rows in CSV where [$($correlationProperty)] = [$($correlationValue)]. Error Message: $($errorMessage.AuditErrorMessage)"
-                IsError = $true
-            })
-
-        # Skip further actions, as this is a critical error
-        continue
+    # Not representable for all CSV rows since the rows differ per contract, this is only the last row
+    if ($rows.Count -gt 0) {
+        $outputData = $rows[-1] | Select-Object -Property $mappedFields
     }
-    #endregion Export updated CSV object
+    elseif ($existingRows.Count -gt 0) {
+        $outputData = $existingRows[-1] | Select-Object -Property $mappedFields
+    }
+    else {
+        $outputData = $account | Select-Object -Property $mappedFields
+    }
+
+    # Process
+    # As in V1, the rows of the person are always replaced by the rows that should exist: the current rows of
+    # the person are removed and a row per contract is added, also when the person already has rows
+    switch ($lifecycleProcess) {
+        'CreateAccount' {
+            if (-not($actionContext.DryRun -eq $true)) {
+                Write-Information "Creating [$($rows.Count)] row(s) where [$($correlationField)] = [$($correlationValue)]"
+                Write-InfolearnCSVRows -Rows $rows -ExistingRows $existingRows -CsvContent $csvContent
+
+                $outputContext.Data = $outputData
+                $outputContext.AccountReference = "$($correlationValue)"
+            }
+            else {
+                Write-Information "[DryRun] Create [$($rows.Count)] row(s) where [$($correlationField)] = [$($correlationValue)], will be executed during enforcement"
+            }
+            $auditLogMessage = "Create account was successful. Created [$($rows.Count)] row(s). AccountReference is: [$($outputContext.AccountReference)]"
+            break
+        }
+
+        'CorrelateAccount' {
+            Write-Information 'Correlating Infolearn-CSV rows'
+
+            if (-not($actionContext.DryRun -eq $true)) {
+                Write-InfolearnCSVRows -Rows $rows -ExistingRows $existingRows -CsvContent $csvContent
+            }
+            else {
+                Write-Information "[DryRun] Replace [$($existingRows.Count)] row(s) with [$($rows.Count)] row(s) where [$($correlationField)] = [$($correlationValue)], will be executed during enforcement"
+            }
+
+            $outputContext.Data = $outputData
+            $outputContext.AccountReference = "$($correlationValue)"
+            $outputContext.AccountCorrelated = $true
+            $auditLogMessage = "Correlated account: [$($outputContext.AccountReference)] on field: [$($correlationField)] with value: [$($correlationValue)]. Found [$($existingRows.Count)] row(s), replaced by [$($rows.Count)] row(s) from HelloID"
+            break
+        }
+    }
+
+    $outputContext.Success = $true
+    $outputContext.AuditLogs.Add([PSCustomObject]@{
+            Action  = $lifecycleProcess
+            Message = $auditLogMessage
+            IsError = $false
+        })
 }
-finally {
-    # Check if auditLogs contains errors, if no errors are found, set success to true
-    if (-NOT($auditLogs.IsError -contains $true)) {
-        $success = $true
-    }
-
-    # If aRef empty, set with correlation property and value
-    if ([String]::IsNullOrEmpty($aRef)) {
-        $aRef = [PSCustomObject]@{
-            $correlationProperty = $correlationValue
-        }
-    }
-    
-    # Send results
-    $result = [PSCustomObject]@{
-        Success          = $success
-        AccountReference = $aRef
-        AuditLogs        = $auditLogs
-
-        # # Optionally return data for use in notifications
-        # PreviousAccount  = $previousAccount
-        # PreviousAccount  = $previousAccount
-        # Account          = $account
-    
-        # # Optionally return data for use in other systems
-        # ExportData       = $exportData
-    }
-    
-    Write-Output ($result | ConvertTo-Json -Depth 10)  
+catch {
+    $outputContext.Success = $false
+    $ex = $PSItem
+    # File-based: no HTTP exceptions, so always resolve with the error function
+    $errorObj = Resolve-InfolearnCSVError -ErrorObject $ex
+    $auditLogMessage = "Error $($actionMessage). Could not create or correlate Infolearn-CSV rows. Error: $($errorObj.FriendlyMessage)"
+    Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
+    $outputContext.AuditLogs.Add([PSCustomObject]@{
+            Message = $auditLogMessage
+            IsError = $true
+        })
 }

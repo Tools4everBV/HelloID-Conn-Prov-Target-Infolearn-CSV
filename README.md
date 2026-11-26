@@ -1,83 +1,152 @@
 # HelloID-Conn-Prov-Target-Infolearn-CSV
-<a href="https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-Infolearn-CSV/network/members"><img src="https://img.shields.io/github/forks/Tools4everBV/HelloID-Conn-Prov-Target-Infolearn-CSV" alt="Forks Badge"/></a>
-<a href="https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-Infolearn-CSV/pulls"><img src="https://img.shields.io/github/issues-pr/Tools4everBV/HelloID-Conn-Prov-Target-Infolearn-CSV" alt="Pull Requests Badge"/></a>
-<a href="https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-Infolearn-CSV/issues"><img src="https://img.shields.io/github/issues/Tools4everBV/HelloID-Conn-Prov-Target-Infolearn-CSV" alt="Issues Badge"/></a>
-<a href="https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-Infolearn-CSV/graphs/contributors"><img alt="GitHub contributors" src="https://img.shields.io/github/contributors/Tools4everBV/HelloID-Conn-Prov-Target-Infolearn-CSV?color=2b9348"></a>
 
-| :warning: Warning                                                                                                                                                     |
-| :-------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| This is connector only creates and manages the CSV file. Currently, there is still an additional scheduled task required to upload this to the Infolearn SFTP server. |
+<!--
+** for extra information about alert syntax please refer to [Alerts](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax#alerts)
+-->
 
-| :information_source: Information                                                                                                                                                                                                                                                                                                                                                       |
-| :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| This repository contains the connector and configuration code only. The implementer is responsible to acquire the connection details such as username, password, certificate, etc. You might even need to sign a contract or agreement with the supplier before implementing this connector. Please contact the client's application manager to coordinate the connector requirements. |
+> [!WARNING]
+> This connector only creates and manages the CSV file. Currently, an additional scheduled task is still required to upload this file to the Infolearn SFTP server.
+
+> [!IMPORTANT]
+> This repository contains the connector and configuration code only. The implementer is responsible to acquire the connection details such as username, password, certificate, etc. You might even need to sign a contract or agreement with the supplier before implementing this connector. Please contact the client's application manager to coordinate the connector requirements.
 
 <p align="center">
-  <img src="https://infolearn.nl/infolearn-version-004/wp-content/themes/infolearn/assets/images/logo/default.png">
+  <img src="https://raw.githubusercontent.com/Tools4everBV/HelloID-Conn-Prov-Target-Infolearn-CSV/refs/heads/main/Logo.png">
 </p>
 
-## Versioning
-| Version | Description     |
-| ------- | --------------- |
-| 1.0.0   | Initial release |
+## Table of contents
 
-<!-- TABLE OF CONTENTS -->
-## Table of Contents
 - [HelloID-Conn-Prov-Target-Infolearn-CSV](#helloid-conn-prov-target-infolearn-csv)
-  - [Versioning](#versioning)
-  - [Table of Contents](#table-of-contents)
-  - [Requirements](#requirements)
+  - [Table of contents](#table-of-contents)
   - [Introduction](#introduction)
-  - [Getting Started](#getting-started)
-    - [Request CSV sync with Infolearn](#request-csv-sync-with-infolearn)
-    - [Configuring Task to upload CSV to Infolearn SFTP server](#configuring-task-to-upload-csv-to-infolearn-sftp-server)
+  - [Supported features](#supported-features)
+  - [Getting started](#getting-started)
+    - [HelloID Icon URL](#helloid-icon-url)
+    - [Requirements](#requirements)
     - [Connection settings](#connection-settings)
+    - [Correlation configuration](#correlation-configuration)
+    - [Field mapping](#field-mapping)
+    - [Account Reference](#account-reference)
   - [Remarks](#remarks)
+    - [Rows are replaced, not merged](#rows-are-replaced-not-merged)
+    - [Additional task to upload the CSV to Infolearn](#additional-task-to-upload-the-csv-to-infolearn)
+    - [CSV layout may differ per customer](#csv-layout-may-differ-per-customer)
+  - [Development resources](#development-resources)
+    - [API endpoints](#api-endpoints)
+    - [API documentation](#api-documentation)
   - [Getting help](#getting-help)
-  - [HelloID Docs](#helloid-docs)
-
-## Requirements
-- Required to run **On-Premises**.
-- **Concurrent sessions** in HelloID set to a **maximum of 1**! If this is any higher than 1, this may cause errors due to file locking.
+  - [HelloID docs](#helloid-docs)
 
 ## Introduction
-For this connector we have the option to create, update, and remove rows in the CSV file for a person.
 
-| Action     | Action(s) Performed                                        | Comment                                                                   |
-| ---------- | ---------------------------------------------------------- | ------------------------------------------------------------------------- |
-| create.ps1 | Create new and Update or Remove existing row(s) for person | Can remove existing rows if they are no longer valid according to HelloID |
-| update.ps1 | Create new and Update or Remove existing row(s) for person | Can remove existing rows if they are no longer valid according to HelloID |
-| delete.ps1 | Remove existing row(s) for person                          | **All** rows that are found according to correlation will be removed      |
+_HelloID-Conn-Prov-Target-Infolearn-CSV_ is a _target_ connector that creates, updates and removes the rows of a person in a CSV file. The CSV file is used for the CSV synchronisation with Infolearn. A person has one row for every contract that is in the conditions.
 
-## Getting Started
+| Action     | Action(s) performed                                               | Comment                                                                    |
+| ---------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| create.ps1 | Add one row per contract in the conditions; existing rows of the person are replaced | As in V1. A person whose rows already exist is reported as correlated |
+| update.ps1 | Add, update or remove the rows of the person                      | Only writes the file when the rows differ from what HelloID expects        |
+| delete.ps1 | Remove the rows of the person                                     | **All** rows found for the account reference are removed                   |
 
-### Request CSV sync with Infolearn
-The first step is to request the option to sync a CSV with Infolearn.
-The process for requesting this is currently unclear. Please contact your Infolearn contact for more information.
+## Supported features
 
-### Configuring Task to upload CSV to Infolearn SFTP server
-This connector creates the CSV file required for the CSV sync to Infolearn. However, this CSV file still needs to be placed on the Infolearn SFTP server.
-We cannot and will not upload this directly to the SFTP server as this may introduce security risks and further issues (e.g. timeouts as HelloID Prov only supports 30 seconds max. for an action).
-So an additional task has to be created to upload the CSV file to the Infolearn SFTP server.
+The following features are available:
+
+| Feature                                   | Supported | Actions                 | Remarks                  |
+| ----------------------------------------- | --------- | ----------------------- | ------------------------ |
+| **Account Lifecycle**                     | ✅         | Create, Update, Delete  | One row per contract     |
+| **Permissions**                           | ❌         | -                       |                          |
+| **Resources**                             | ❌         | -                       |                          |
+| **Entitlement Import: Accounts**          | ❌         | -                       |                          |
+| **Entitlement Import: Permissions**       | ❌         | -                       |                          |
+| **Governance Reconciliation Resolutions** | ❌         | -                       |                          |
+
+## Getting started
+
+### HelloID Icon URL
+
+URL of the icon used for the HelloID Provisioning target system.
+
+```
+https://raw.githubusercontent.com/Tools4everBV/HelloID-Conn-Prov-Target-Infolearn-CSV/refs/heads/main/Icon.png
+```
+
+### Requirements
+
+- **On-premises**:<br>
+  The connector must run on-premises, using the HelloID Provisioning agent, as it reads and writes a local file.
+- **Concurrent sessions**:<br>
+  Concurrent sessions in HelloID must be set to a **maximum of 1**. A higher value may cause errors due to file locking.
+- **Existing CSV file**:<br>
+  The CSV file must exist before the connector is used. Create, update and delete fail when the file cannot be read. The file may be empty or only contain the header.
 
 ### Connection settings
-| Setting              | Description                                                                                   | Mandatory |
-| -------------------- | --------------------------------------------------------------------------------------------- | --------- |
-| CSV File Path        | The path to the CSV file to export the data to                                                | Yes       |
-| Delimiter            | TThe delimiter that separates the property values in the CSV file. The default is a comma (,) | Yes       |
-| Encoding             | The encoding for the imported CSV file. The default value is utf8                             | Yes       |
-| Toggle debug logging | When toggled, debug logging will be displayed                                                 | No        |
 
+The following settings are required to connect to the CSV file.
+
+| Setting       | Description                                                                                   | Mandatory |
+| ------------- | --------------------------------------------------------------------------------------------- | --------- |
+| CSV File Path | The path to the CSV file to export the data to                                                | Yes       |
+| Delimiter     | The delimiter that separates the property values in the CSV file. The default is a comma (,)  | Yes       |
+| Encoding      | The encoding of the CSV file. The default value is utf8                                       | Yes       |
+
+### Correlation configuration
+
+The correlation configuration is used to specify which properties will be used to match existing rows within the CSV file to a person in _HelloID_.
+
+| Setting                   | Value                             |
+| ------------------------- | --------------------------------- |
+| Enable correlation        | `True`                            |
+| Person correlation field  | `PersonContext.Person.ExternalId` |
+| Account correlation field | `Medewerker`                      |
+
+> [!IMPORTANT]
+> Update and delete look up the rows with `$actionContext.References.Account` in the `Medewerker` column, so the account correlation field in HelloID must be `Medewerker`. Change the column name in _update.ps1_ and _delete.ps1_ when another column is used.
+
+> [!TIP]
+> _For more information on correlation, please refer to our correlation [documentation](https://docs.helloid.com/en/provisioning/target-systems/powershell-v2-target-systems/correlation.html) pages_.
+
+### Field mapping
+
+The field mapping can be imported by using the _fieldMapping.json_ file. The field names are the column headers of the CSV file and the order of the fields is the column order.
+
+The columns _Opdrachtgevernaam_, _Opdrachtgever_, _OE_code_, _OE_, _Functie_code_ and _Functie_ are mapped from the primary contract, but the scripts fill them for every contract that is in the conditions. The mapping only defines the columns. The header of the existing CSV file must contain all mapped columns: `Export-Csv` takes the columns from the first row, so a column that is not in the header is left out of the file.
+
+### Account Reference
+
+The account reference is populated with the value of the `Medewerker` column (the external ID of the person).
 
 ## Remarks
-- To make sure only the HelloID data remains in the CSV file, we remove all rows for the person and then add all rows again that should exist according to HelloID.
-    > Because of this, it is not possible to manually add/delete any rows.
-- This connector works "out-of-the-box", but as the CSV synchronisation to Infolearn has to be additionally requested to Infolearn, the required CSV may differ from the example in this template.
+
+### Rows are replaced, not merged
+
+- To make sure only the HelloID data remains in the CSV file, all rows of the person are removed and the rows that should exist according to HelloID are added again.
+  > Because of this, it is not possible to manually add or delete rows of a person that is managed by HelloID.
+- The CSV is written to a temporary file (`<CSV file path>.tmp`) next to the CSV and then moved over it, so a failed write does not leave a cut-off file. The account that runs the agent needs create and delete rights on that folder. When the last row is removed, the header line stays in the file.
+
+### Additional task to upload the CSV to Infolearn
+
+- The connector does not upload the CSV file to the Infolearn SFTP server, as that may introduce security risks and timeouts (HelloID Provisioning supports 30 seconds at most per action). An additional task has to be created to upload the file.
+- The option to sync a CSV with Infolearn has to be requested at Infolearn. Please contact your Infolearn contact for more information.
+
+### CSV layout may differ per customer
+
+- The connector works out-of-the-box, but the CSV synchronisation has to be requested at Infolearn, so the required CSV may differ from the layout used here.
+
+## Development resources
+
+### API endpoints
+
+This connector does not use an API. It reads and writes the configured CSV file.
+
+### API documentation
+
+Not applicable.
 
 ## Getting help
-> _For more information on how to configure a HelloID PowerShell connector, please refer to our [documentation](https://docs.helloid.com/hc/en-us/articles/360012518799-How-to-add-a-target-system) pages_
 
-> _If you need help, feel free to ask questions on our [forum](https://forum.helloid.com/forum/helloid-connectors/provisioning/806-helloid-provisioning-helloid-conn-prov-target-exchangeonline)_
+> [!TIP]
+> _For more information on how to configure a HelloID PowerShell connector, please refer to our [documentation](https://docs.helloid.com/en/provisioning/target-systems/powershell-v2-target-systems.html) pages_.
 
-## HelloID Docs
+## HelloID docs
+
 The official HelloID documentation can be found at: https://docs.helloid.com/
